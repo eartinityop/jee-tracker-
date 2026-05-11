@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save } from 'lucide-react';
+import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save, ChevronLeft, Menu } from 'lucide-react';
 import CalendarView from './CalendarView';
 import SyllabusView from './SyllabusView';
 import ProgressView from './ProgressView';
@@ -48,6 +48,9 @@ const THEMES = [
 export default function App() {
   const [activeTab, setActiveTab] = useState('calendar');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tracker-theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches);
+  
+  // NEW: Sidebar Shrink State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('tracker-color') || 'blue');
@@ -245,24 +248,27 @@ export default function App() {
           </div>
         )}
 
-        {/* STATIC SIDEBAR */}
-        <nav className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex flex-col py-8 z-10 hidden md:flex my-2 ml-2 shadow-2xl border border-white/20 rounded-[32px] overflow-hidden shrink-0 w-64 px-4 transition-colors duration-300">
+        {/* DYNAMIC SIDEBAR (Shrinkable) */}
+        <nav className={`bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex flex-col py-8 z-10 hidden md:flex my-2 ml-2 shadow-2xl border border-white/20 rounded-[32px] overflow-hidden shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64 px-4' : 'w-24 px-2 items-center'}`}>
           
-          <div className="flex items-center justify-between w-full mb-10 px-2">
-            <h1 className="text-xl font-extrabold text-blue-500 tracking-tight whitespace-nowrap overflow-hidden">JEE Tracker</h1>
+          <div className={`flex items-center w-full mb-10 ${isSidebarOpen ? 'justify-between px-2' : 'justify-center'}`}>
+            {isSidebarOpen && <h1 className="text-xl font-extrabold text-blue-500 tracking-tight whitespace-nowrap overflow-hidden">JEE Tracker</h1>}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl hover:bg-blue-500 hover:text-white transition-colors">
+              {isSidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
+            </button>
           </div>
 
-          <div className="flex flex-col gap-4 w-full">
-            <NavButton icon="📅" label="Calendar" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
-            <NavButton icon="📚" label="Syllabus" isActive={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
-            <NavButton icon="📈" label="Progress" isActive={activeTab === 'progress'} onClick={() => setActiveTab('progress')} />
-            <NavButton icon="⏱️" label="Timer" isActive={activeTab === 'timer'} onClick={() => setActiveTab('timer')} />
+          <div className="flex flex-col gap-4 w-full items-center">
+            <NavButton icon="📅" label="Calendar" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} isSidebarOpen={isSidebarOpen} />
+            <NavButton icon="📚" label="Syllabus" isActive={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} isSidebarOpen={isSidebarOpen} />
+            <NavButton icon="📈" label="Progress" isActive={activeTab === 'progress'} onClick={() => setActiveTab('progress')} isSidebarOpen={isSidebarOpen} />
+            <NavButton icon="⏱️" label="Timer" isActive={activeTab === 'timer'} onClick={() => setActiveTab('timer')} isSidebarOpen={isSidebarOpen} />
           </div>
 
-          <div className="mt-auto w-full pt-6 border-t border-slate-300/30 dark:border-slate-700/50">
-            <button onClick={() => setIsSettingsOpen(true)} className="flex items-center justify-start gap-3 w-full p-3 rounded-2xl transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group">
+          <div className="mt-auto w-full pt-6 border-t border-slate-300/30 dark:border-slate-700/50 flex flex-col items-center">
+            <button onClick={() => setIsSettingsOpen(true)} title={!isSidebarOpen ? 'Settings' : ''} className={`flex items-center gap-3 p-3 rounded-2xl transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group ${isSidebarOpen ? 'w-full justify-start' : 'justify-center w-14 h-14'}`}>
               <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500 shrink-0" />
-              <span className="font-medium whitespace-nowrap">Settings</span>
+              {isSidebarOpen && <span className="font-medium whitespace-nowrap">Settings</span>}
             </button>
           </div>
         </nav>
@@ -340,7 +346,7 @@ export default function App() {
                     <button onClick={logoutGoogle} className="text-xs font-bold text-slate-500 hover:text-red-500">Disconnect</button>
                   </div>
                 ) : (
-                  <button onClick={() => loginWithGoogle} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold py-3 px-4 rounded-2xl shadow-sm flex items-center justify-center gap-3 transition-colors">
+                  <button onClick={() => loginWithGoogle()} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold py-3 px-4 rounded-2xl shadow-sm flex items-center justify-center gap-3 transition-colors">
                     <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Auto-Sync with Google Drive
                   </button>
                 )}
@@ -365,11 +371,11 @@ export default function App() {
   );
 }
 
-function NavButton({ icon, label, isActive, onClick }) {
+function NavButton({ icon, label, isActive, onClick, isSidebarOpen }) {
   return (
-    <button onClick={onClick} className={`relative flex items-center gap-3 w-full p-3 rounded-2xl transition-all md:justify-start ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent'}`}>
+    <button onClick={onClick} title={!isSidebarOpen ? label : ''} className={`relative flex items-center gap-3 p-3 rounded-2xl transition-all ${isSidebarOpen ? 'w-full md:justify-start' : 'justify-center w-14 h-14'} ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent'}`}>
       <span className="text-xl shrink-0">{icon}</span>
-      <span className="font-medium whitespace-nowrap">{label}</span>
+      {isSidebarOpen && <span className="font-medium whitespace-nowrap">{label}</span>}
     </button>
   );
 }
