@@ -71,6 +71,13 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const [activeMockForScore, setActiveMockForScore] = useState(null);
   const [tempScore, setTempScore] = useState('');
 
+  // FORCE REFRESH DATA ON MOUNT
+  useEffect(() => {
+    setFullSyllabus(JSON.parse(localStorage.getItem('tracker-syllabus') || '[]'));
+    setChapters(JSON.parse(localStorage.getItem('tracker-chapters') || '[]'));
+    setEvents(JSON.parse(localStorage.getItem('tracker-events') || '[]'));
+  }, []);
+
   useEffect(() => { localStorage.setItem('tracker-chapters', JSON.stringify(chapters)); }, [chapters]);
   useEffect(() => { localStorage.setItem('tracker-events', JSON.stringify(events)); }, [events]);
   useEffect(() => { localStorage.setItem('tracker-mocks', JSON.stringify(mocks)); }, [mocks]);
@@ -86,7 +93,17 @@ export default function CalendarView({ themeToggle, timerIsland }) {
     return `${String(d.getHours()).padStart(2, '0')}:00:00`;
   };
 
-  const premiumColors = { High: { bg: '#fee2e2', border: '#ef4444', text: '#7f1d1d' }, Medium: { bg: '#fef9c3', border: '#eab308', text: '#713f12' }, Less: { bg: '#e0f2fe', border: '#3b82f6', text: '#0c4a6e' } };
+  const TASK_COLORS = {
+    red: { bg: '#ef4444', border: '#b91c1c', text: '#ffffff' },
+    orange: { bg: '#f97316', border: '#c2410c', text: '#ffffff' },
+    yellow: { bg: '#eab308', border: '#a16207', text: '#ffffff' },
+    green: { bg: '#10b981', border: '#047857', text: '#ffffff' },
+    cyan: { bg: '#06b6d4', border: '#0e7490', text: '#ffffff' },
+    blue: { bg: '#3b82f6', border: '#1d4ed8', text: '#ffffff' },
+    indigo: { bg: '#6366f1', border: '#4338ca', text: '#ffffff' },
+    purple: { bg: '#a855f7', border: '#7e22ce', text: '#ffffff' },
+    pink: { bg: '#ec4899', border: '#be185d', text: '#ffffff' },
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -94,7 +111,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const [taskName, setTaskName] = useState('');
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('10:00');
-  const [priority, setPriority] = useState('Medium');
+  const [taskColorKey, setTaskColorKey] = useState('blue');
   const [subject, setSubject] = useState('Physics');
   const [linkedChapterTitle, setLinkedChapterTitle] = useState(''); 
 
@@ -108,15 +125,19 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const currentMonthChapters = chapters.filter(c => c.monthKey === currentMonthKey);
 
   const openAddModal = (dateStr, existingTask = null) => {
+    // Force refresh explicitly 
+    setChapters(JSON.parse(localStorage.getItem('tracker-chapters') || '[]'));
+    setFullSyllabus(JSON.parse(localStorage.getItem('tracker-syllabus') || '[]'));
+
     if (existingTask) {
       setEditingId(existingTask.id); setTaskName(existingTask.title || ''); 
       setStartTime(extractTime(existingTask.start, '08:00')); setEndTime(extractTime(existingTask.end, '10:00'));
-      setPriority(existingTask.extendedProps?.priority || existingTask.priority || 'Medium'); 
+      setTaskColorKey(existingTask.extendedProps?.colorKey || existingTask.colorKey || 'blue'); 
       setSubject(existingTask.extendedProps?.subject || existingTask.subject || 'Physics'); 
       setLinkedChapterTitle(existingTask.extendedProps?.linkedChapterTitle || existingTask.linkedChapterTitle || ''); 
       setSelectedDate(extractDate(existingTask.start));
     } else {
-      setEditingId(null); setSelectedDate(extractDate(dateStr)); setTaskName(''); setStartTime('08:00'); setEndTime('10:00'); setPriority('Medium'); setSubject('Physics'); setLinkedChapterTitle('');
+      setEditingId(null); setSelectedDate(extractDate(dateStr)); setTaskName(''); setStartTime('08:00'); setEndTime('10:00'); setTaskColorKey('blue'); setSubject('Physics'); setLinkedChapterTitle('');
     }
     setDailyModal({ ...dailyModal, isOpen: false }); setIsModalOpen(true);
   };
@@ -124,7 +145,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const handleSaveTask = () => {
     if (!taskName) return;
     const existingTask = events.find(e => e.id === editingId);
-    const newEvent = { id: editingId || String(Date.now()), title: taskName, start: `${selectedDate}T${startTime}:00`, end: `${selectedDate}T${endTime}:00`, priority, subject, linkedChapterTitle, allDay: false, done: existingTask ? existingTask.extendedProps?.done || existingTask.done : false };
+    const newEvent = { id: editingId || String(Date.now()), title: taskName, start: `${selectedDate}T${startTime}:00`, end: `${selectedDate}T${endTime}:00`, colorKey: taskColorKey, subject, linkedChapterTitle, allDay: false, done: existingTask ? existingTask.extendedProps?.done || existingTask.done : false };
     if (editingId) setEvents(events.map(e => e.id === editingId ? newEvent : e)); else setEvents([...events, newEvent]);
     setIsModalOpen(false);
   };
@@ -195,7 +216,13 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   
   const handleDateClick = (arg) => { if (currentView === 'dayGridMonth') triggerDailyModal(arg.dateStr); else openAddModal(arg.dateStr.split('T')[0]); };
   
-  const openChapterModal = () => { setPendingSelection(currentMonthChapters.map(c => c.chapterId)); setIsChapterModalOpen(true); };
+  const openChapterModal = () => { 
+    // Force refresh syllabus to avoid "Empty Syllabus" bug
+    const updatedSyllabus = JSON.parse(localStorage.getItem('tracker-syllabus') || '[]');
+    setFullSyllabus(updatedSyllabus);
+    setPendingSelection(currentMonthChapters.map(c => c.chapterId)); 
+    setIsChapterModalOpen(true); 
+  };
   
   const handleSaveMonthlyChapters = () => {
     let newChapters = chapters.filter(c => c.monthKey !== currentMonthKey || pendingSelection.includes(c.chapterId));
@@ -231,9 +258,9 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   };
 
   const renderEventContent = (eventInfo) => {
-    const p = eventInfo.event.extendedProps?.priority || 'Medium';
+    const k = eventInfo.event.extendedProps?.colorKey || 'blue';
     const isDone = eventInfo.event.extendedProps?.done || false;
-    const c = premiumColors[p];
+    const c = TASK_COLORS[k] || TASK_COLORS.blue;
 
     if (currentView === 'dayGridMonth') {
       return (
@@ -242,12 +269,13 @@ export default function CalendarView({ themeToggle, timerIsland }) {
         </div>
       );
     }
+    
     const s = eventInfo.event.start ? eventInfo.event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : '';
     const e = eventInfo.event.end ? eventInfo.event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : '';
     return (
-      <div className={`w-full h-full flex flex-col justify-start p-2.5 overflow-hidden ${isDone ? 'opacity-50' : ''}`} style={{ backgroundColor: c.bg, borderLeft: `4px solid ${c.border}`, borderRadius: '6px', color: c.text }}>
-        <div className={`text-[19px] font-bold tracking-tight leading-tight mb-1 ${isDone ? 'line-through' : ''}`}>{eventInfo.event.title}</div>
-        <div className="flex items-center gap-1.5 opacity-80 font-bold mt-0.5" style={{ fontSize: '12px' }}><Clock size={12} strokeWidth={2.5} /><span>{s} - {e}</span></div>
+      <div className={`relative z-20 w-full h-full flex flex-col justify-start p-2.5 overflow-hidden shadow-md transition-all ${isDone ? 'saturate-50 brightness-75' : ''}`} style={{ backgroundColor: c.bg, borderLeft: `5px solid ${c.border}`, borderRadius: '6px', color: c.text }}>
+        <div className={`text-[18px] font-black tracking-tight leading-tight mb-1 ${isDone ? 'line-through text-white/70' : ''}`}>{eventInfo.event.title}</div>
+        <div className={`flex items-center gap-1.5 font-extrabold mt-0.5 ${isDone ? 'text-white/60' : 'opacity-90'}`} style={{ fontSize: '12px' }}><Clock size={13} strokeWidth={3} /><span>{s} - {e}</span></div>
       </div>
     );
   };
@@ -255,11 +283,14 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const renderMonthCell = (arg) => {
     const dateStr = formatLocalYMD(arg.date);
     const dayMocks = mocks.filter(m => m.date === dateStr);
-    const isToday = dateStr === formatLocalYMD(new Date());
+    
+    const todayStr = formatLocalYMD(new Date());
+    const isPast = new Date(dateStr) < new Date(todayStr);
+    const isToday = dateStr === todayStr;
     const allCompleted = dayMocks.length > 0 && dayMocks.every(m => m.isCompleted);
 
     return (
-      <div className="flex justify-between items-start w-full h-full p-1 cursor-pointer group" onClick={() => triggerDailyModal(dateStr)}>
+      <div className={`flex justify-between items-start w-full h-full p-1 cursor-pointer group transition-all duration-300 ${isPast ? 'bg-slate-50/10 dark:bg-slate-800/20 opacity-50 hover:opacity-100' : ''}`} onClick={() => triggerDailyModal(dateStr)}>
         <div className="flex flex-col items-start pt-1 pl-1">
           {dayMocks.length > 0 && currentView === 'dayGridMonth' && (
              <div className="flex items-center gap-1 z-20">
@@ -271,13 +302,14 @@ export default function CalendarView({ themeToggle, timerIsland }) {
              </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1 pt-0.5 pr-0.5">
+        
+        <div className="flex items-center gap-1 pt-0.5 pr-0.5">
+          <button type="button" onClick={(e) => { e.stopPropagation(); openAddModal(dateStr); }} className="relative z-50 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white/40 border border-white/20 dark:border-white/10 dark:bg-white/10 rounded-full text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-md">
+            <Plus size={14} className="pointer-events-none" />
+          </button>
           <div className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors ${isToday ? 'bg-blue-600 text-white shadow-md z-10' : 'text-slate-700 dark:text-slate-200 group-hover:bg-slate-200/50 dark:group-hover:bg-slate-700/50 z-10'}`}>
             <span className="font-bold text-[13px]">{arg.dayNumberText.replace('日','')}</span>
           </div>
-          <button type="button" onClick={(e) => { e.stopPropagation(); openAddModal(dateStr); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white/40 border border-white/20 dark:border-white/10 dark:bg-white/10 rounded-full text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-md z-20">
-            <Plus size={14} />
-          </button>
         </div>
       </div>
     );
@@ -332,7 +364,6 @@ export default function CalendarView({ themeToggle, timerIsland }) {
     </div>
   );
 
-  // VITE 6 CRASH FIX: Move calculations out of JSX IIFE
   const taskDateObj = selectedDate ? new Date(selectedDate) : currentRenderDate;
   const taskMonthKey = `${taskDateObj.getFullYear()}-${String(taskDateObj.getMonth() + 1).padStart(2, '0')}`;
   const availableChapters = chapters.filter(c => c.monthKey === taskMonthKey && c.subject === subject);
@@ -382,10 +413,10 @@ export default function CalendarView({ themeToggle, timerIsland }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] flex-1 overflow-hidden bg-transparent h-full min-h-0">
+      <div className="flex-1 flex overflow-hidden min-h-0 bg-transparent relative w-full">
         
         {/* LEFT SIDEBAR */}
-        <div className="border-r border-slate-300/40 dark:border-slate-700/50 p-5 flex flex-col overflow-y-auto hidden md:flex hide-scrollbar h-full">
+        <div className="w-[300px] border-r border-slate-300/40 dark:border-slate-700/50 p-5 flex flex-col overflow-y-auto hidden md:flex hide-scrollbar h-full shrink-0">
           
           <div className="mb-6 select-none shrink-0 bg-white/20 dark:bg-slate-800/30 p-4 rounded-3xl border border-white/30 dark:border-white/5 shadow-sm">
             <div className="flex justify-between items-center mb-4 px-2">
@@ -419,10 +450,10 @@ export default function CalendarView({ themeToggle, timerIsland }) {
             </div>
           </div>
 
-          <div className="mb-6 shrink-0">
+          <div className="mb-6 shrink-0 relative z-20">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2"><Zap size={16} className="text-yellow-500 fill-yellow-500" /><span className="text-sm font-bold text-slate-800 dark:text-white">Today's Tasks</span></div>
-              <button type="button" onClick={() => openAddModal(todayDateStr)} className="p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm z-[60] cursor-pointer"><Plus size={14} className="pointer-events-none" /></button>
+              <button type="button" onClick={() => openAddModal(todayDateStr)} className="relative z-50 p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm cursor-pointer"><Plus size={14} className="pointer-events-none" /></button>
             </div>
             <div className="flex flex-col gap-3">
               {todaysTasks.length === 0 ? <span className="text-xs font-medium text-slate-500">No tasks today.</span> : todaysTasks.map(task => {
@@ -448,10 +479,10 @@ export default function CalendarView({ themeToggle, timerIsland }) {
 
           <div className="w-full h-px bg-slate-300/40 dark:bg-slate-700/50 mb-6 shrink-0"></div>
 
-          <div className="mb-6 shrink-0">
+          <div className="mb-6 shrink-0 relative z-20">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2"><Zap size={16} className="text-blue-500 fill-blue-500" /><span className="text-sm font-bold text-slate-800 dark:text-white">Chapters Covered</span></div>
-              <button type="button" onClick={() => openChapterModal()} className="p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm z-[60] cursor-pointer"><Plus size={14} className="pointer-events-none" /></button>
+              <button type="button" onClick={() => openChapterModal()} className="relative z-50 p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm cursor-pointer"><Plus size={14} className="pointer-events-none" /></button>
             </div>
             <div className="flex flex-col gap-3">
               {currentMonthChapters.length === 0 ? <span className="text-xs font-medium text-slate-500">No chapters mapped for this month.</span> : currentMonthChapters.map(chap => (
@@ -473,17 +504,17 @@ export default function CalendarView({ themeToggle, timerIsland }) {
           <div className="w-full h-px bg-slate-300/40 dark:bg-slate-700/50 mb-6 shrink-0"></div>
 
           {/* MOCK TESTS SIDEBAR WITH NEW HISTORY ICON */}
-          <div className="shrink-0 pb-10">
+          <div className="shrink-0 pb-10 relative z-20">
              <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Target size={16} className="text-red-500 fill-red-500" />
                 <span className="text-sm font-bold text-slate-800 dark:text-white">Mock Tests</span>
               </div>
               <div className="flex items-center gap-2">
-                 <button type="button" onClick={() => setIsMockHistoryOpen(true)} className="p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm z-[60] cursor-pointer" title="View Full History">
+                 <button type="button" onClick={() => setIsMockHistoryOpen(true)} className="relative z-50 p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm cursor-pointer" title="View Full History">
                     <History size={14} className="pointer-events-none" />
                  </button>
-                 <button type="button" onClick={() => openMockModal()} className="p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm z-[60] cursor-pointer" title="Add Mock">
+                 <button type="button" onClick={() => openMockModal()} className="relative z-50 p-1.5 rounded-full bg-white/40 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 border border-white/20 dark:border-white/5 transition-all hover:scale-110 shadow-sm cursor-pointer" title="Add Mock">
                     <Plus size={14} className="pointer-events-none" />
                  </button>
               </div>
@@ -502,7 +533,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
                                    <CheckCircle size={18} className="text-white relative z-10" />
                                 </div>
                             ) : (
-                                <button onClick={(e) => { e.stopPropagation(); openScoreModal(m); }} className="group flex items-center justify-center w-5 h-5 flex-shrink-0 cursor-pointer relative" title="Mark as Done">
+                                <button onClick={(e) => { e.stopPropagation(); openScoreModal(m); }} className="group flex items-center justify-center w-5 h-5 flex-shrink-0 cursor-pointer relative z-50" title="Mark as Done">
                                    <div className="w-4 h-4 rounded border-2 border-slate-400 dark:border-slate-300 group-hover:border-red-400 transition-colors z-10"></div>
                                    <div className="absolute top-[-2px] right-[-2px] w-2.5 h-2.5 bg-red-500 rounded-full animate-ping opacity-80"></div>
                                    <div className="absolute top-[-2px] right-[-2px] w-2.5 h-2.5 bg-red-500 rounded-full z-20"></div>
@@ -531,9 +562,9 @@ export default function CalendarView({ themeToggle, timerIsland }) {
         </div>
 
         {/* RIGHT CALENDAR */}
-        <div className="custom-calendar relative p-4 h-full overflow-hidden flex flex-col z-0">
+        <div className="custom-calendar relative p-4 h-full flex-1 flex flex-col z-0 overflow-hidden w-full">
           <style>{`
-            .custom-calendar .fc { --fc-border-color: rgba(148, 163, 184, 0.2); --fc-button-bg-color: rgba(59, 130, 246, 0.1); --fc-button-border-color: transparent; --fc-button-hover-bg-color: rgba(59, 130, 246, 0.2); --fc-button-active-bg-color: rgba(59, 130, 246, 0.3); --fc-today-bg-color: rgba(59, 130, 246, 0.05); height: 100%;}
+            .custom-calendar .fc { --fc-border-color: rgba(148, 163, 184, 0.2); --fc-button-bg-color: rgba(59, 130, 246, 0.1); --fc-button-border-color: transparent; --fc-button-hover-bg-color: rgba(59, 130, 246, 0.2); --fc-button-active-bg-color: rgba(59, 130, 246, 0.3); --fc-today-bg-color: rgba(59, 130, 246, 0.05); height: 100%; width: 100%;}
             .custom-calendar .fc-toolbar-title { font-size: 1.25rem; font-weight: 800; color: inherit; }
             .custom-calendar .fc-col-header-cell { padding: 12px 0; font-size: 0.8rem; text-transform: uppercase; font-weight: 800; opacity: 0.7; }
             .custom-calendar .fc-daygrid-day-number { width: 100%; padding: 0; }
@@ -556,27 +587,29 @@ export default function CalendarView({ themeToggle, timerIsland }) {
                z-index: 50;
             }
           `}</style>
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView={currentView} 
-            headerToolbar={false} 
-            events={events}
-            eventContent={renderEventContent} 
-            dayMaxEvents={3} 
-            datesSet={(arg) => { setCalendarTitle(arg.view.title); setCurrentRenderDate(arg.view.currentStart); }} 
-            dateClick={handleDateClick}
-            eventClick={(arg) => openAddModal(arg.event.startStr, events.find(e => e.id === arg.event.id))}
-            dayCellContent={currentView === 'dayGridMonth' ? renderMonthCell : undefined}
-            dayHeaderContent={renderHeaderContent}
-            moreLinkClick={(arg) => { triggerDailyModal(formatLocalYMD(arg.date)); return 'prevent'; }}
-            allDaySlot={false} slotDuration="01:00:00" slotMinTime="00:00:00" slotMaxTime="24:00:00" nowIndicator={true} height="100%"
-            scrollTime={getScrollTime()} 
-          />
+          <div className="w-full h-full">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView={currentView} 
+              headerToolbar={false} 
+              events={events}
+              eventContent={renderEventContent} 
+              dayMaxEvents={3} 
+              datesSet={(arg) => { setCalendarTitle(arg.view.title); setCurrentRenderDate(arg.view.currentStart); }} 
+              dateClick={handleDateClick}
+              eventClick={(arg) => openAddModal(arg.event.startStr, events.find(e => e.id === arg.event.id))}
+              dayCellContent={currentView === 'dayGridMonth' ? renderMonthCell : undefined}
+              dayHeaderContent={renderHeaderContent}
+              moreLinkClick={(arg) => { triggerDailyModal(formatLocalYMD(arg.date)); return 'prevent'; }}
+              allDaySlot={false} slotDuration="01:00:00" slotMinTime="00:00:00" slotMaxTime="24:00:00" nowIndicator={true} height="100%"
+              scrollTime={getScrollTime()} 
+            />
+          </div>
         </div>
       </div>
 
-      {/* --- MOCK TEST HISTORY MODAL (NEW) --- */}
+      {/* --- MOCK TEST HISTORY MODAL --- */}
       {isMockHistoryOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[99999] flex justify-center items-center p-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl w-full max-w-4xl rounded-[32px] shadow-2xl p-8 border border-white/20 relative max-h-[90vh] flex flex-col">
