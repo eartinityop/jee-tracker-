@@ -1,41 +1,48 @@
 import { useState, useCallback } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 
 const FILE_NAME = 'jee_tracker_backup.json';
 
 export function useDriveSync() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [token, setToken] = useState(null);
+  // Login status ab localStorage se yaad rakha jayega
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('gdrive_loggedin') === 'true');
+  const [token, setToken] = useState(() => localStorage.getItem('gdrive_token') || null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // 1. Google Login Setup
+  // Google Login Setup
   const loginWithGoogle = useGoogleLogin({
     onSuccess: (tokenResponse) => {
-      console.log("✅ GOOGLE LOGIN SUCCESS! Token received.");
-      setToken(tokenResponse.access_token);
-      setIsLoggedIn(true); 
+      console.log("✅ GOOGLE LOGIN SUCCESS!", tokenResponse);
+      const accessToken = tokenResponse.access_token;
+      setToken(accessToken);
+      setIsLoggedIn(true);
+      
+      // Token aur status ko browser memory me save kar rahe hain
+      localStorage.setItem('gdrive_token', accessToken);
+      localStorage.setItem('gdrive_loggedin', 'true');
     },
     onError: (error) => {
       console.error('❌ GOOGLE LOGIN FAILED:', error);
-      alert("Login failed! Check console for details.");
+      alert("Login popup was blocked or failed! Try again.");
     },
-    // Sirf AppData folder me access mangega (Hidden & Secure)
     scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file',
   });
 
   const logoutGoogle = () => {
+    googleLogout();
     setIsLoggedIn(false);
     setToken(null);
+    localStorage.removeItem('gdrive_token');
+    localStorage.removeItem('gdrive_loggedin');
     console.log("Logged out of Google Drive.");
   };
 
-  // 2. Drive Sync Logic (Create or Update)
+  // Drive Sync Logic (Create or Update)
   const saveToDrive = useCallback(async (accessToken) => {
     if (!accessToken) return;
     setIsSyncing(true);
 
     try {
-      // Collect local storage data
       const dataToSave = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -45,7 +52,6 @@ export function useDriveSync() {
       const fileContent = JSON.stringify(dataToSave);
       const metadata = { name: FILE_NAME, parents: ['appDataFolder'] };
 
-      // Check if file exists
       const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -61,7 +67,6 @@ export function useDriveSync() {
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
       form.append('file', new Blob([fileContent], { type: 'application/json' }));
 
-      // Create new (POST) or Update existing (PATCH)
       const url = fileId 
         ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
         : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
@@ -79,7 +84,6 @@ export function useDriveSync() {
       } else {
         console.error("❌ Sync failed with status:", uploadRes.status);
       }
-
     } catch (error) {
       console.error("❌ Drive Sync Catch Error:", error);
     } finally {
