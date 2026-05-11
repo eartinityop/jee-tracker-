@@ -86,17 +86,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
     return `${String(d.getHours()).padStart(2, '0')}:00:00`;
   };
 
-  const TASK_COLORS = {
-    red: { bg: '#ef4444', border: '#b91c1c', text: '#ffffff' },
-    orange: { bg: '#f97316', border: '#c2410c', text: '#ffffff' },
-    yellow: { bg: '#eab308', border: '#a16207', text: '#ffffff' },
-    green: { bg: '#10b981', border: '#047857', text: '#ffffff' },
-    cyan: { bg: '#06b6d4', border: '#0e7490', text: '#ffffff' },
-    blue: { bg: '#3b82f6', border: '#1d4ed8', text: '#ffffff' },
-    indigo: { bg: '#6366f1', border: '#4338ca', text: '#ffffff' },
-    purple: { bg: '#a855f7', border: '#7e22ce', text: '#ffffff' },
-    pink: { bg: '#ec4899', border: '#be185d', text: '#ffffff' },
-  };
+  const premiumColors = { High: { bg: '#fee2e2', border: '#ef4444', text: '#7f1d1d' }, Medium: { bg: '#fef9c3', border: '#eab308', text: '#713f12' }, Less: { bg: '#e0f2fe', border: '#3b82f6', text: '#0c4a6e' } };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -104,7 +94,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const [taskName, setTaskName] = useState('');
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('10:00');
-  const [taskColorKey, setTaskColorKey] = useState('blue');
+  const [priority, setPriority] = useState('Medium');
   const [subject, setSubject] = useState('Physics');
   const [linkedChapterTitle, setLinkedChapterTitle] = useState(''); 
 
@@ -121,12 +111,12 @@ export default function CalendarView({ themeToggle, timerIsland }) {
     if (existingTask) {
       setEditingId(existingTask.id); setTaskName(existingTask.title || ''); 
       setStartTime(extractTime(existingTask.start, '08:00')); setEndTime(extractTime(existingTask.end, '10:00'));
-      setTaskColorKey(existingTask.extendedProps?.colorKey || existingTask.colorKey || 'blue'); 
+      setPriority(existingTask.extendedProps?.priority || existingTask.priority || 'Medium'); 
       setSubject(existingTask.extendedProps?.subject || existingTask.subject || 'Physics'); 
       setLinkedChapterTitle(existingTask.extendedProps?.linkedChapterTitle || existingTask.linkedChapterTitle || ''); 
       setSelectedDate(extractDate(existingTask.start));
     } else {
-      setEditingId(null); setSelectedDate(extractDate(dateStr)); setTaskName(''); setStartTime('08:00'); setEndTime('10:00'); setTaskColorKey('blue'); setSubject('Physics'); setLinkedChapterTitle('');
+      setEditingId(null); setSelectedDate(extractDate(dateStr)); setTaskName(''); setStartTime('08:00'); setEndTime('10:00'); setPriority('Medium'); setSubject('Physics'); setLinkedChapterTitle('');
     }
     setDailyModal({ ...dailyModal, isOpen: false }); setIsModalOpen(true);
   };
@@ -134,7 +124,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const handleSaveTask = () => {
     if (!taskName) return;
     const existingTask = events.find(e => e.id === editingId);
-    const newEvent = { id: editingId || String(Date.now()), title: taskName, start: `${selectedDate}T${startTime}:00`, end: `${selectedDate}T${endTime}:00`, colorKey: taskColorKey, subject, linkedChapterTitle, allDay: false, done: existingTask ? existingTask.extendedProps?.done || existingTask.done : false };
+    const newEvent = { id: editingId || String(Date.now()), title: taskName, start: `${selectedDate}T${startTime}:00`, end: `${selectedDate}T${endTime}:00`, priority, subject, linkedChapterTitle, allDay: false, done: existingTask ? existingTask.extendedProps?.done || existingTask.done : false };
     if (editingId) setEvents(events.map(e => e.id === editingId ? newEvent : e)); else setEvents([...events, newEvent]);
     setIsModalOpen(false);
   };
@@ -241,9 +231,9 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   };
 
   const renderEventContent = (eventInfo) => {
-    const k = eventInfo.event.extendedProps?.colorKey || 'blue';
+    const p = eventInfo.event.extendedProps?.priority || 'Medium';
     const isDone = eventInfo.event.extendedProps?.done || false;
-    const c = TASK_COLORS[k] || TASK_COLORS.blue;
+    const c = premiumColors[p];
 
     if (currentView === 'dayGridMonth') {
       return (
@@ -252,13 +242,12 @@ export default function CalendarView({ themeToggle, timerIsland }) {
         </div>
       );
     }
-    
     const s = eventInfo.event.start ? eventInfo.event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : '';
     const e = eventInfo.event.end ? eventInfo.event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : '';
     return (
-      <div className={`relative z-20 w-full h-full flex flex-col justify-start p-2.5 overflow-hidden shadow-md transition-all ${isDone ? 'saturate-50 brightness-75' : ''}`} style={{ backgroundColor: c.bg, borderLeft: `5px solid ${c.border}`, borderRadius: '6px', color: c.text }}>
-        <div className={`text-[18px] font-black tracking-tight leading-tight mb-1 ${isDone ? 'line-through text-white/70' : ''}`}>{eventInfo.event.title}</div>
-        <div className={`flex items-center gap-1.5 font-extrabold mt-0.5 ${isDone ? 'text-white/60' : 'opacity-90'}`} style={{ fontSize: '12px' }}><Clock size={13} strokeWidth={3} /><span>{s} - {e}</span></div>
+      <div className={`w-full h-full flex flex-col justify-start p-2.5 overflow-hidden ${isDone ? 'opacity-50' : ''}`} style={{ backgroundColor: c.bg, borderLeft: `4px solid ${c.border}`, borderRadius: '6px', color: c.text }}>
+        <div className={`text-[19px] font-bold tracking-tight leading-tight mb-1 ${isDone ? 'line-through' : ''}`}>{eventInfo.event.title}</div>
+        <div className="flex items-center gap-1.5 opacity-80 font-bold mt-0.5" style={{ fontSize: '12px' }}><Clock size={12} strokeWidth={2.5} /><span>{s} - {e}</span></div>
       </div>
     );
   };
@@ -266,14 +255,11 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const renderMonthCell = (arg) => {
     const dateStr = formatLocalYMD(arg.date);
     const dayMocks = mocks.filter(m => m.date === dateStr);
-    
-    const todayStr = formatLocalYMD(new Date());
-    const isPast = new Date(dateStr) < new Date(todayStr);
-    const isToday = dateStr === todayStr;
+    const isToday = dateStr === formatLocalYMD(new Date());
     const allCompleted = dayMocks.length > 0 && dayMocks.every(m => m.isCompleted);
 
     return (
-      <div className={`flex justify-between items-start w-full h-full p-1 cursor-pointer group transition-all duration-300 ${isPast ? 'bg-slate-50/10 dark:bg-slate-800/20 opacity-50 hover:opacity-100' : ''}`} onClick={() => triggerDailyModal(dateStr)}>
+      <div className="flex justify-between items-start w-full h-full p-1 cursor-pointer group" onClick={() => triggerDailyModal(dateStr)}>
         <div className="flex flex-col items-start pt-1 pl-1">
           {dayMocks.length > 0 && currentView === 'dayGridMonth' && (
              <div className="flex items-center gap-1 z-20">
@@ -285,14 +271,13 @@ export default function CalendarView({ themeToggle, timerIsland }) {
              </div>
           )}
         </div>
-        
-        <div className="flex items-center gap-1 pt-0.5 pr-0.5">
-          <button type="button" onClick={(e) => { e.stopPropagation(); openAddModal(dateStr); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white/40 border border-white/20 dark:border-white/10 dark:bg-white/10 rounded-full text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-md z-20">
-            <Plus size={14} />
-          </button>
+        <div className="flex flex-col items-end gap-1 pt-0.5 pr-0.5">
           <div className={`flex items-center justify-center w-7 h-7 rounded-full transition-colors ${isToday ? 'bg-blue-600 text-white shadow-md z-10' : 'text-slate-700 dark:text-slate-200 group-hover:bg-slate-200/50 dark:group-hover:bg-slate-700/50 z-10'}`}>
             <span className="font-bold text-[13px]">{arg.dayNumberText.replace('日','')}</span>
           </div>
+          <button type="button" onClick={(e) => { e.stopPropagation(); openAddModal(dateStr); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white/40 border border-white/20 dark:border-white/10 dark:bg-white/10 rounded-full text-slate-600 dark:text-slate-300 shadow-sm backdrop-blur-md z-20">
+            <Plus size={14} />
+          </button>
         </div>
       </div>
     );
@@ -347,7 +332,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
     </div>
   );
 
-  // SAFE PRE-CALCULATIONS (Removed IIFE structure that crashes bundlers)
+  // VITE 6 CRASH FIX: Move calculations out of JSX IIFE
   const taskDateObj = selectedDate ? new Date(selectedDate) : currentRenderDate;
   const taskMonthKey = `${taskDateObj.getFullYear()}-${String(taskDateObj.getMonth() + 1).padStart(2, '0')}`;
   const availableChapters = chapters.filter(c => c.monthKey === taskMonthKey && c.subject === subject);
