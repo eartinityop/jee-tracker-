@@ -1,111 +1,92 @@
 import { useState, useCallback } from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
 
-// APNA CLIENT ID YAHAN PASTE KAR
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID; 
-const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const FILE_NAME = 'jee_tracker_backup.json';
 
 export function useDriveSync() {
-  const [token, setToken] = useState(() => localStorage.getItem('gdrive_token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [token, setToken] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const loginWithGoogle = useCallback(() => {
-    if (!window.google) {
-      alert('⚠️ Google API blocked! Please disable your Ad-Blocker or Brave Shields and refresh the page.');
-      return;
-    }
-    
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (response) => {
-        if (response.error) {
-          console.error('Google Login Failed:', response);
-          return;
-        }
-        setToken(response.access_token);
-        localStorage.setItem('gdrive_token', response.access_token);
-        alert('✅ Successfully logged in with Google!');
-        loadFromDrive(response.access_token); // Load data immediately on login
-      },
-    });
-    client.requestAccessToken();
-  }, []);
+  // 1. Google Login Setup
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      console.log("✅ GOOGLE LOGIN SUCCESS! Token received.");
+      setToken(tokenResponse.access_token);
+      setIsLoggedIn(true); // Ye line teri app me GDrive ko 'Active' dikhayegi
+    },
+    onError: (error) => {
+      console.error('❌ GOOGLE LOGIN FAILED:', error);
+      alert("Login failed! Check console for details.");
+    },
+    // Sirf AppData folder me access mangega (Hidden & Secure)
+    scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file',
+  });
 
-  const logoutGoogle = useCallback(() => {
+  const logoutGoogle = () => {
+    setIsLoggedIn(false);
     setToken(null);
-    localStorage.removeItem('gdrive_token');
-    alert('Logged out from Google Drive sync.');
-  }, []);
+    console.log("Logged out of Google Drive.");
+  };
 
-  // Upload to Drive
-  const saveToDrive = async (accessToken) => {
+  // 2. Drive Sync Logic (Create or Update)
+  const saveToDrive = useCallback(async (accessToken) => {
     if (!accessToken) return;
     setIsSyncing(true);
-    
-    // Gather all tracker data from localStorage
-    const dataToSync = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('tracker-')) dataToSync[key] = localStorage.getItem(key);
-    }
-    
-    const fileContent = JSON.stringify(dataToSync);
-    const fileMetadata = { name: 'jee_tracker_backup.json', parents: ['appDataFolder'] };
 
     try {
-      // Step 1: Check if file exists
-      const searchRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name="jee_tracker_backup.json"', {
+      // Pura local storage data collect karo
+      const dataToSave = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('tracker-')) dataToSave[key] = localStorage.getItem(key);
+      }
+      
+      const fileContent = JSON.stringify(dataToSave);
+      const metadata = { name: FILE_NAME, parents: ['appDataFolder'] };
+
+      // Step A: Check if file already exists in Drive
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      
       const searchData = await searchRes.json();
-      const fileId = searchData.files && searchData.files.length > 0 ? searchData.files[0].id : null;
+      let fileId = null;
+      
+      if (searchData.files && searchData.files.length > 0) {
+        fileId = searchData.files[0].id;
+      }
 
-      // Step 2: Upload or Update
-      const method = fileId ? 'PATCH' : 'POST';
+      // Step B: Prepare upload data
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([fileContent], { type: 'application/json' }));
+
+      // Step C: If file exists, update it (PATCH). If not, create new (POST).
       const url = fileId 
         ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
         : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-      form.append('file', new Blob([fileContent], { type: 'application/json' }));
-
-      await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}` }, body: form });
-      console.log('☁️ Auto-synced to Google Drive!');
-    } catch (err) {
-      console.error('Drive Sync Error:', err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Download from Drive
-  const loadFromDrive = async (accessToken) => {
-    if (!accessToken) return;
-    setIsSyncing(true);
-    try {
-      const searchRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name="jee_tracker_backup.json"', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const searchData = await searchRes.json();
       
-      if (searchData.files && searchData.files.length > 0) {
-        const fileId = searchData.files[0].id;
-        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const savedData = await fileRes.json();
-        
-        // Restore data
-        Object.keys(savedData).forEach(key => localStorage.setItem(key, savedData[key]));
-        window.location.reload(); // Refresh to apply downloaded data
+      const method = fileId ? 'PATCH' : 'POST';
+
+      const uploadRes = await fetch(url, {
+        method: method,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: form
+      });
+
+      if (uploadRes.ok) {
+        console.log("✅ Data successfully synced to Google Drive!");
+      } else {
+        console.error("❌ Sync failed with status:", uploadRes.status);
       }
-    } catch (err) {
-      console.error('Drive Load Error:', err);
+
+    } catch (error) {
+      console.error("❌ Drive Sync Catch Error:", error);
     } finally {
       setIsSyncing(false);
     }
-  };
+  }, []);
 
-  return { isLoggedIn: !!token, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing };
+  return { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing };
 }
