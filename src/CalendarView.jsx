@@ -368,26 +368,23 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const taskMonthKey = `${taskDateObj.getFullYear()}-${String(taskDateObj.getMonth() + 1).padStart(2, '0')}`;
   const availableChapters = chapters.filter(c => c.monthKey === taskMonthKey && c.subject === subject);
 
-  // 🔥 BULLETPROOF AUTO-SCROLL FIX 🔥
+  // 🔥 THE "FIND THE HOUR ROW" AUTO-SCROLL FIX 🔥
   useEffect(() => {
     if (currentView === 'timeGridWeek' || currentView === 'timeGridDay') {
-      let attempts = 0;
-      
-      const scrollInterval = setInterval(() => {
-        const nowIndicator = document.querySelector('.fc-timegrid-now-indicator-line');
+      const timer = setTimeout(() => {
+        // Abhi ka ghanta nikalo (e.g., agar 8:41 PM hai, toh "20:00:00" banayega)
+        const currentHour = new Date().getHours().toString().padStart(2, '0') + ':00:00';
         
-        if (nowIndicator) {
-          // Line milte hi scroll karo aur search band kar do
-          nowIndicator.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          clearInterval(scrollInterval);
+        // FullCalendar ke us specific ghante wali physically row ko dhoondho
+        const targetRow = document.querySelector(`tr[data-time="${currentHour}"]`);
+        
+        if (targetRow) {
+          // Us row ko smoothly screen ke center me le aao
+          targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        
-        attempts++;
-        // Failsafe: 1.5 seconds (15 attempts) ke baad search band kar do taaki app hang na ho
-        if (attempts > 15) clearInterval(scrollInterval);
-      }, 100);
-
-      return () => clearInterval(scrollInterval);
+      }, 400); // 400ms ka safe delay taaki row render ho chuki ho
+      
+      return () => clearTimeout(timer);
     }
   }, [currentView]);
   
