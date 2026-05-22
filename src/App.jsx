@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save } from 'lucide-react';
+import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save, Layers } from 'lucide-react';
 import CalendarView from './CalendarView';
 import SyllabusView from './SyllabusView';
 import ProgressView from './ProgressView';
@@ -52,7 +52,11 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('tracker-color') || 'blue');
   const [bgImage, setBgImage] = useState(() => localStorage.getItem('tracker-bg') || null);
+  
+  // 🔥 NEW STATE VARIABLES FOR OPACITY AND DIMMING
   const [colorIntensity, setColorIntensity] = useState(() => Number(localStorage.getItem('tracker-color-intensity') ?? 100));
+  const [bgDimness, setBgDimness] = useState(() => Number(localStorage.getItem('tracker-bg-dimness') ?? 20));
+  const [tileOpacity, setTileOpacity] = useState(() => Number(localStorage.getItem('tracker-tile-opacity') ?? 40));
 
   const [timerMode, setTimerMode] = useState('Pomodoro');
   const [pomodoroType, setPomodoroType] = useState('Focus');
@@ -63,7 +67,6 @@ export default function App() {
 
   const { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing } = useDriveSync();
 
-  // FullCalendar auto-resize on layout change to prevent visual bugs
   useEffect(() => {
     const triggerResize = () => window.dispatchEvent(new Event('resize'));
     const t1 = setTimeout(triggerResize, 150);
@@ -170,12 +173,14 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('tracker-color', activeTheme); }, [activeTheme]);
   useEffect(() => { localStorage.setItem('tracker-color-intensity', colorIntensity.toString()); }, [colorIntensity]);
+  useEffect(() => { localStorage.setItem('tracker-bg-dimness', bgDimness.toString()); }, [bgDimness]);
+  useEffect(() => { localStorage.setItem('tracker-tile-opacity', tileOpacity.toString()); }, [tileOpacity]);
   useEffect(() => { if (bgImage) localStorage.setItem('tracker-bg', bgImage); else localStorage.removeItem('tracker-bg'); }, [bgImage]);
 
   const currentTheme = THEMES.find(t => t.id === activeTheme) || THEMES[0];
 
   const toggleThemeBtn = (
-    <button onClick={() => setIsDark(!isDark)} className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-md w-9 h-9 rounded-full hover:scale-110 transition-transform flex items-center justify-center shadow-md border border-white/20 shrink-0">
+    <button onClick={() => setIsDark(!isDark)} className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-md w-9 h-9 rounded-full hover:scale-110 transition-transform flex items-center justify-center shadow-md border border-white/20 shrink-0 z-50">
       {isDark ? <Sun size={16} className="text-yellow-400" /> : <Moon size={16} className="text-indigo-500" />}
     </button>
   );
@@ -234,34 +239,41 @@ export default function App() {
 
   return (
     <>
+      {/* 🔥 GLOBAL CSS OVERRIDE FOR TILE OPACITIES 🔥 */}
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 10px; }
+        
+        /* Master override to dynamically control all glass panels across all views */
+        .bg-white\\/40 { background-color: rgba(255, 255, 255, ${tileOpacity / 100}) !important; }
+        .dark .dark\\:bg-slate-900\\/40 { background-color: rgba(15, 23, 42, ${tileOpacity / 100}) !important; }
+        .dark .dark\\:bg-slate-800\\/40 { background-color: rgba(30, 41, 59, ${tileOpacity / 100}) !important; }
       `}</style>
 
-      {/* Changed flex-row layout to flex-col for Top Nav */}
       <div 
         className="flex flex-col min-h-screen w-full overflow-x-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 relative bg-slate-100 dark:bg-[#0b1120]"
-        style={{ backgroundImage: bgImage ? `url(${bgImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+        style={{ backgroundImage: bgImage ? `url(${bgImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}
       >
+        {/* Background Dimmer Overlay */}
+        <div className="absolute inset-0 pointer-events-none z-0 transition-colors duration-300" style={{ backgroundColor: `rgba(0,0,0,${bgDimness / 100})`, position: 'fixed' }}></div>
+
+        {/* Orbs */}
         {!bgImage && (
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" style={{ opacity: colorIntensity / 100 }}>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 fixed" style={{ opacity: colorIntensity / 100 }}>
             <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] ${currentTheme.orb1} rounded-full blur-[100px] transition-colors duration-1000`}></div>
             <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] ${currentTheme.orb2} rounded-full blur-[100px] transition-colors duration-1000`}></div>
           </div>
         )}
 
-        {/* 🔥 NEW TOP NAVBAR 🔥 */}
-        <nav className="sticky top-0 w-full bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 z-[200] shrink-0 shadow-lg border-b border-white/20">
+        {/* TOP NAVBAR (Sticky) */}
+        <nav className="sticky top-0 w-full bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 z-[200] shrink-0 shadow-lg border-b border-white/20 transition-all duration-300">
           
-          {/* Left: Title */}
           <div className="flex-1 flex justify-start items-center">
              <h1 className="text-xl font-extrabold text-blue-500 tracking-tight hidden sm:block">JEE Tracker</h1>
              <h1 className="text-xl font-extrabold text-blue-500 tracking-tight sm:hidden">JEE</h1>
           </div>
 
-          {/* Center: Nav Icons */}
           <div className="flex items-center justify-center gap-2 sm:gap-4">
             <NavButton icon="📅" label="Calendar" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
             <NavButton icon="📚" label="Syllabus" isActive={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
@@ -269,9 +281,8 @@ export default function App() {
             <NavButton icon="⏱️" label="Timer" isActive={activeTab === 'timer'} onClick={() => setActiveTab('timer')} />
           </div>
 
-          {/* Right: Settings */}
           <div className="flex-1 flex justify-end items-center">
-            <button onClick={() => setIsSettingsOpen(true)} title="Settings" className="p-2 sm:p-3 rounded-2xl transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group">
+            <button onClick={() => setIsSettingsOpen(true)} title="Settings" className="p-2 sm:p-3 rounded-full transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group">
               <Settings size={22} className="group-hover:rotate-90 transition-transform duration-500 shrink-0" />
             </button>
           </div>
@@ -311,6 +322,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Slider 1: Orb Intensity */}
             {!bgImage && (
               <div className="mb-6">
                 <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
@@ -321,7 +333,25 @@ export default function App() {
               </div>
             )}
 
-            <div className="mb-2">
+            {/* Slider 2: Background Dimness */}
+            <div className="mb-6">
+               <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2"><Moon size={16} /> BG Dimness</span>
+                  <span className="text-blue-500">{bgDimness}%</span>
+               </label>
+               <input type="range" min="0" max="90" step="5" value={bgDimness} onChange={(e) => setBgDimness(Number(e.target.value))} className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+
+            {/* Slider 3: Tile Opacity */}
+            <div className="mb-6">
+               <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2"><Layers size={16} /> Glass Opacity</span>
+                  <span className="text-blue-500">{tileOpacity}%</span>
+               </label>
+               <input type="range" min="0" max="100" step="5" value={tileOpacity} onChange={(e) => setTileOpacity(Number(e.target.value))} className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+
+            <div className="mb-2 border-t border-slate-200 dark:border-slate-700 pt-6 mt-6">
               <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center gap-2"><ImageIcon size={16} /> Custom Wallpaper</label>
               <div className="flex items-center gap-4">
                 {bgImage && <img src={bgImage} alt="Wallpaper" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 shadow-md" />}
@@ -372,7 +402,7 @@ export default function App() {
   );
 }
 
-// NavButton updated for Circular shape (rounded-full) and smaller sizes
+// NavButton updated to be circular and slightly smaller
 function NavButton({ icon, label, isActive, onClick }) {
   return (
     <button onClick={onClick} title={label} className={`relative flex items-center justify-center p-2 rounded-full transition-all w-10 h-10 sm:w-12 sm:h-12 ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent hover:scale-105'}`}>
