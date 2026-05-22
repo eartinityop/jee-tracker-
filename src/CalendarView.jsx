@@ -682,7 +682,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
 
       {/* --- PRO MOCK TEST CREATION MODAL --- */}
       {isMockModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[99999] flex justify-center items-center p-4">
+        <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl w-full max-w-xl rounded-[32px] shadow-2xl p-8 border border-white/20 max-h-[90vh] overflow-y-auto hide-scrollbar relative">
              <button onClick={() => setIsMockModalOpen(false)} className="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white"><X size={24} /></button>
              <h3 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-800 dark:text-white"><Target className="text-blue-500"/> {mockEditId ? 'Edit Mock Test' : 'Schedule Mock Test'}</h3>
@@ -746,7 +746,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
 
       {/* --- CHAPTERS MAPPING MODAL --- */}
       {isChapterModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[99999] flex justify-center items-center p-4">
+        <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl w-full max-w-5xl rounded-[32px] p-8 shadow-2xl border border-white/20 dark:border-white/10 text-slate-800 dark:text-white relative flex flex-col max-h-[85vh]">
             <button onClick={() => setIsChapterModalOpen(false)} className="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white"><X size={24} /></button>
             <h3 className="text-2xl font-black mb-2 tracking-tight">Map Chapters to {currentRenderDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
@@ -789,7 +789,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
 
       {/* TASK MODAL WITH 9 COLORS */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[99999] flex justify-center items-center p-4">
+        <div className="absolute inset-0 z-50 flex justify-center items-center p-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl w-full max-w-md rounded-[32px] p-8 shadow-2xl border border-white/20 dark:border-white/10 text-slate-800 dark:text-white relative max-h-[90vh] overflow-y-auto hide-scrollbar">
             <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><X size={24} /></button>
             <h3 className="text-2xl font-black mb-8 tracking-tight flex items-center gap-3"><CalIcon className="text-blue-500"/> {editingId ? 'Edit Task' : 'New Task'}</h3>
