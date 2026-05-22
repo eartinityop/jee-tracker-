@@ -612,7 +612,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
               dayHeaderContent={renderHeaderContent}
               moreLinkClick={(arg) => { triggerDailyModal(formatLocalYMD(arg.date)); return 'prevent'; }}
               allDaySlot={false} slotDuration="01:00:00" slotMinTime="00:00:00" slotMaxTime="24:00:00" nowIndicator={true} height="auto"
-              scrollTime={new Date(Date.now() - 3600000).toTimeString().split(' ')[0]}
+              scrollTime={getScrollTime()}
             />
           </div>
         </div>
