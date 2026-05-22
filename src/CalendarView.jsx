@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import { createPortal } from 'react-dom';
 import interactionPlugin from '@fullcalendar/interaction';
 import confetti from 'canvas-confetti';
 import { Plus, X, Pencil, Trash2, Clock, Calendar as CalIcon, ChevronDown, CheckSquare, Square, Zap, Target, CheckCircle, ChevronLeft, ChevronRight, History } from 'lucide-react';
@@ -744,6 +743,49 @@ export default function CalendarView({ themeToggle, timerIsland }) {
           </div>
         </div>
       )}
+
+      {/* --- CHAPTERS MAPPING MODAL --- */}
+      {isChapterModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl w-full max-w-5xl rounded-[32px] p-8 shadow-2xl border border-white/20 dark:border-white/10 text-slate-800 dark:text-white relative flex flex-col max-h-[85vh]">
+            <button onClick={() => setIsChapterModalOpen(false)} className="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white"><X size={24} /></button>
+            <h3 className="text-2xl font-black mb-2 tracking-tight">Map Chapters to {currentRenderDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
+            <p className="text-sm font-semibold text-slate-500 mb-8">Check or uncheck chapters to add/remove them from this month's goals.</p>
+            
+            <div className="flex-1 overflow-y-auto pr-2 hide-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-800 gap-0">
+                {['Physics', 'Chemistry', 'Mathematics'].map((subj, idx) => {
+                  const subjChapters = fullSyllabus.filter(c => c.subject === subj);
+                  return (
+                    <div key={subj} className={`${idx !== 0 ? 'md:pl-8 pt-6 md:pt-0' : 'pr-0 md:pr-8'} ${idx === 1 ? 'md:pr-8' : ''}`}>
+                      <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">{subj}</h4>
+                      <div className="grid gap-2 overflow-y-auto max-h-[50vh] hide-scrollbar pr-2">
+                        {subjChapters.map(ch => {
+                          const isSelected = pendingSelection.includes(ch.id);
+                          return (
+                            <div key={ch.id} onClick={() => toggleChapterSelection(ch.id)} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors border ${isSelected ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-100/50 dark:bg-slate-800/30 border-transparent hover:bg-slate-200/50 dark:hover:bg-slate-800/60'}`}>
+                              {isSelected ? <CheckSquare size={18} className="text-blue-500 flex-shrink-0" /> : <Square size={18} className="text-slate-400 dark:text-slate-600 flex-shrink-0" />}
+                              <span className={`text-sm font-bold leading-tight ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'}`}>{ch.title}</span>
+                            </div>
+                          )
+                        })}
+                        {subjChapters.length === 0 && <div className="text-sm font-semibold text-slate-400 py-4 text-center">No chapters in syllabus yet.</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {fullSyllabus.length === 0 && <div className="text-center text-slate-500 font-bold py-8 mt-4 bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl">Your syllabus is empty. Add chapters in the Syllabus tab first.</div>}
+            </div>
+            
+            <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button onClick={handleSaveMonthlyChapters} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-extrabold py-4 px-10 rounded-2xl transition-transform active:scale-95 shadow-lg shadow-blue-500/30">
+                Save Selected Chapters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
               
       {/* TASK MODAL WITH 9 COLORS */}
       {isModalOpen && (
@@ -892,37 +934,7 @@ export default function CalendarView({ themeToggle, timerIsland }) {
             </div>
           </div>
         </div>
-      )}
-
-      {isChapterModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex justify-center items-center p-4">
-          
-          {/* THE ACTUAL CENTERED POPUP BOX */}
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl w-full max-w-3xl rounded-[32px] p-6 sm:p-8 relative shadow-2xl border border-white/20 max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 text-slate-800 dark:text-white">
-            
-            {/* 1. Header */}
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight">Select Monthly Chapters</h3>
-              <button onClick={() => setIsMonthlyModalOpen(false)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* 2. Scrollable Body */}
-            <div className="flex-1 overflow-y-auto pr-2 show-scrollbar mb-6">
-              {/* TERI CHAPTERS KI LIST YAHAN DAAL DE */}
-            </div>
-
-            {/* 3. Footer */}
-            <div className="flex justify-end gap-3 shrink-0 pt-4 border-t border-slate-200 dark:border-slate-800">
-              <button onClick={() => setIsMonthlyModalOpen(false)} className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 px-5 rounded-2xl transition-colors text-sm">Cancel</button>
-              <button onClick={handleSaveSelectedChapters} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-2xl transition-colors text-sm shadow-lg shadow-blue-500/20">Save Selected Chapters</button>
-            </div>
-
-          </div>
-        </div>
-      )}
-      
+      )}      
     </div>
   );
 }
