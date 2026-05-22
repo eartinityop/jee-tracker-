@@ -372,11 +372,11 @@ export default function App() {
   );
 }
 
-// NavButton updated to perfectly frame the icons only
+// NavButton updated for Circular shape (rounded-full) and smaller sizes
 function NavButton({ icon, label, isActive, onClick }) {
   return (
-    <button onClick={onClick} title={label} className={`relative flex items-center justify-center p-2 sm:p-3 rounded-2xl transition-all w-12 h-12 sm:w-14 sm:h-14 ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent hover:scale-105'}`}>
-      <span className="text-xl sm:text-2xl shrink-0">{icon}</span>
+    <button onClick={onClick} title={label} className={`relative flex items-center justify-center p-2 rounded-full transition-all w-10 h-10 sm:w-12 sm:h-12 ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent hover:scale-105'}`}>
+      <span className="text-lg sm:text-xl shrink-0">{icon}</span>
     </button>
   );
 }
