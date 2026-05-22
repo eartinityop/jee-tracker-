@@ -368,20 +368,26 @@ export default function CalendarView({ themeToggle, timerIsland }) {
   const taskMonthKey = `${taskDateObj.getFullYear()}-${String(taskDateObj.getMonth() + 1).padStart(2, '0')}`;
   const availableChapters = chapters.filter(c => c.monthKey === taskMonthKey && c.subject === subject);
 
-  // 🔥 AUTO-SCROLL FIX FOR "HEIGHT: AUTO" CALENDARS 🔥
+  // 🔥 BULLETPROOF AUTO-SCROLL FIX 🔥
   useEffect(() => {
-    // Sirf Week ya Day view me scroll karna hai
     if (currentView === 'timeGridWeek' || currentView === 'timeGridDay') {
-      // Thoda delay taaki calendar pehle DOM me render ho jaye
-      const timer = setTimeout(() => {
-        const nowIndicator = document.querySelector('.fc-timegrid-now-indicator-line');
-        if (nowIndicator) {
-          // block: 'center' us laal line ko screen ke ekdum beech me laa dega
-          nowIndicator.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 300); // 300ms is a safe sweet spot
+      let attempts = 0;
       
-      return () => clearTimeout(timer);
+      const scrollInterval = setInterval(() => {
+        const nowIndicator = document.querySelector('.fc-timegrid-now-indicator-line');
+        
+        if (nowIndicator) {
+          // Line milte hi scroll karo aur search band kar do
+          nowIndicator.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          clearInterval(scrollInterval);
+        }
+        
+        attempts++;
+        // Failsafe: 1.5 seconds (15 attempts) ke baad search band kar do taaki app hang na ho
+        if (attempts > 15) clearInterval(scrollInterval);
+      }, 100);
+
+      return () => clearInterval(scrollInterval);
     }
   }, [currentView]);
   
