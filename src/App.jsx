@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save, ChevronLeft, Menu } from 'lucide-react';
+import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save } from 'lucide-react';
 import CalendarView from './CalendarView';
 import SyllabusView from './SyllabusView';
 import ProgressView from './ProgressView';
@@ -48,8 +48,7 @@ const THEMES = [
 export default function App() {
   const [activeTab, setActiveTab] = useState('calendar');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tracker-theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
+  
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('tracker-color') || 'blue');
   const [bgImage, setBgImage] = useState(() => localStorage.getItem('tracker-bg') || null);
@@ -64,13 +63,13 @@ export default function App() {
 
   const { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing } = useDriveSync();
 
-  // FULLCALENDAR RESIZE FIX (Runs dynamically when sidebar state changes)
+  // FullCalendar auto-resize on layout change to prevent visual bugs
   useEffect(() => {
     const triggerResize = () => window.dispatchEvent(new Event('resize'));
-    const t1 = setTimeout(triggerResize, 150); // Mid-transition
-    const t2 = setTimeout(triggerResize, 300); // End of transition
+    const t1 = setTimeout(triggerResize, 150);
+    const t2 = setTimeout(triggerResize, 300);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [isSidebarOpen, activeTab]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -241,8 +240,9 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 10px; }
       `}</style>
 
+      {/* Changed flex-row layout to flex-col for Top Nav */}
       <div 
-        className="flex h-screen w-full overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 relative bg-slate-100 dark:bg-[#0b1120]"
+        className="flex flex-col h-screen w-full overflow-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 relative bg-slate-100 dark:bg-[#0b1120]"
         style={{ backgroundImage: bgImage ? `url(${bgImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
       >
         {!bgImage && (
@@ -252,29 +252,32 @@ export default function App() {
           </div>
         )}
 
-        <nav className={`bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex flex-col py-8 z-10 hidden md:flex my-2 ml-2 shadow-2xl border border-white/20 rounded-[32px] overflow-hidden shrink-0 transition-all duration-300 ${isSidebarOpen ? 'w-64 px-4' : 'w-24 px-2 items-center'}`}>
-          <div className={`flex items-center w-full mb-10 ${isSidebarOpen ? 'justify-between px-2' : 'justify-center'}`}>
-            {isSidebarOpen && <h1 className="text-xl font-extrabold text-blue-500 tracking-tight whitespace-nowrap overflow-hidden">JEE Tracker</h1>}
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl hover:bg-blue-500 hover:text-white transition-colors">
-              {isSidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
-            </button>
+        {/* 🔥 NEW TOP NAVBAR 🔥 */}
+        <nav className="w-full bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 z-20 shrink-0 shadow-lg border-b border-white/20">
+          
+          {/* Left: Title */}
+          <div className="flex-1 flex justify-start items-center">
+             <h1 className="text-xl font-extrabold text-blue-500 tracking-tight hidden sm:block">JEE Tracker</h1>
+             <h1 className="text-xl font-extrabold text-blue-500 tracking-tight sm:hidden">JEE</h1>
           </div>
 
-          <div className="flex flex-col gap-4 w-full items-center">
-            <NavButton icon="📅" label="Calendar" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} isSidebarOpen={isSidebarOpen} />
-            <NavButton icon="📚" label="Syllabus" isActive={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} isSidebarOpen={isSidebarOpen} />
-            <NavButton icon="📈" label="Progress" isActive={activeTab === 'progress'} onClick={() => setActiveTab('progress')} isSidebarOpen={isSidebarOpen} />
-            <NavButton icon="⏱️" label="Timer" isActive={activeTab === 'timer'} onClick={() => setActiveTab('timer')} isSidebarOpen={isSidebarOpen} />
+          {/* Center: Nav Icons */}
+          <div className="flex items-center justify-center gap-2 sm:gap-4">
+            <NavButton icon="📅" label="Calendar" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
+            <NavButton icon="📚" label="Syllabus" isActive={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
+            <NavButton icon="📈" label="Progress" isActive={activeTab === 'progress'} onClick={() => setActiveTab('progress')} />
+            <NavButton icon="⏱️" label="Timer" isActive={activeTab === 'timer'} onClick={() => setActiveTab('timer')} />
           </div>
 
-          <div className="mt-auto w-full pt-6 border-t border-slate-300/30 dark:border-slate-700/50 flex flex-col items-center">
-            <button onClick={() => setIsSettingsOpen(true)} title={!isSidebarOpen ? 'Settings' : ''} className={`flex items-center gap-3 p-3 rounded-2xl transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group ${isSidebarOpen ? 'w-full justify-start' : 'justify-center w-14 h-14'}`}>
-              <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500 shrink-0" />
-              {isSidebarOpen && <span className="font-medium whitespace-nowrap">Settings</span>}
+          {/* Right: Settings */}
+          <div className="flex-1 flex justify-end items-center">
+            <button onClick={() => setIsSettingsOpen(true)} title="Settings" className="p-2 sm:p-3 rounded-2xl transition-all text-slate-600 dark:text-slate-300 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white group">
+              <Settings size={22} className="group-hover:rotate-90 transition-transform duration-500 shrink-0" />
             </button>
           </div>
         </nav>
 
+        {/* Main Content Area */}
         <main className="flex-1 p-2 md:p-4 overflow-hidden relative flex flex-col z-10 h-full">
           {activeTab === 'calendar' && <CalendarView themeToggle={toggleThemeBtn} timerIsland={timerIslandUI} />}
           {activeTab === 'syllabus' && <SyllabusView themeToggle={toggleThemeBtn} timerIsland={timerIslandUI} />}
@@ -283,24 +286,37 @@ export default function App() {
         </main>
       </div>
 
+      {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[9999] flex justify-center items-center p-4">
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl w-full max-w-md rounded-[32px] p-8 relative shadow-2xl border border-white/20 max-h-[90vh] overflow-y-auto hide-scrollbar">
             <button onClick={() => setIsSettingsOpen(false)} className="absolute top-6 right-6 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"><X size={24} /></button>
-            <h3 className="text-2xl font-black mb-8 text-slate-800 dark:text-white tracking-tight flex items-center gap-3"><Settings className="text-blue-500" /> Settings</h3>
+            
+            <h3 className="text-2xl font-black mb-8 text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+              <Settings className="text-blue-500" /> Settings
+            </h3>
             
             <div className="mb-6">
               <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 block">Color Theme</label>
               <div className="flex flex-wrap gap-3">
                 {THEMES.map(theme => (
-                  <button key={theme.id} onClick={() => setActiveTheme(theme.id)} className={`w-8 h-8 rounded-full shadow-md transition-all ${activeTheme === theme.id ? `ring-4 ring-offset-2 dark:ring-offset-[#0f172a] ${theme.ring} scale-110` : 'hover:scale-110 opacity-60 hover:opacity-100'}`} style={{ backgroundColor: theme.hex }} title={theme.name} />
+                  <button 
+                    key={theme.id} 
+                    onClick={() => setActiveTheme(theme.id)}
+                    className={`w-8 h-8 rounded-full shadow-md transition-all ${activeTheme === theme.id ? `ring-4 ring-offset-2 dark:ring-offset-[#0f172a] ${theme.ring} scale-110` : 'hover:scale-110 opacity-60 hover:opacity-100'}`}
+                    style={{ backgroundColor: theme.hex }}
+                    title={theme.name}
+                  />
                 ))}
               </div>
             </div>
 
             {!bgImage && (
               <div className="mb-6">
-                <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between"><span className="flex items-center gap-2"><SunDim size={16} /> Orb Intensity</span><span className="text-blue-500">{colorIntensity}%</span></label>
+                <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2"><SunDim size={16} /> Orb Intensity</span>
+                  <span className="text-blue-500">{colorIntensity}%</span>
+                </label>
                 <input type="range" min="0" max="100" step="5" value={colorIntensity} onChange={(e) => setColorIntensity(Number(e.target.value))} className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
               </div>
             )}
@@ -310,26 +326,45 @@ export default function App() {
               <div className="flex items-center gap-4">
                 {bgImage && <img src={bgImage} alt="Wallpaper" className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 shadow-md" />}
                 <div className="flex-1 flex flex-col gap-2">
-                  <label className="bg-blue-600/80 hover:bg-blue-500 text-white text-sm font-bold py-2 px-4 rounded-2xl cursor-pointer text-center transition-colors shadow-lg backdrop-blur-md">Upload Image<input type="file" accept="image/*" onChange={async (e) => { if(e.target.files[0]) setBgImage(await compressImage(e.target.files[0])); }} className="hidden" /></label>
+                  <label className="bg-blue-600/80 hover:bg-blue-500 text-white text-sm font-bold py-2 px-4 rounded-2xl cursor-pointer text-center transition-colors shadow-lg backdrop-blur-md">
+                    Upload Image
+                    <input type="file" accept="image/*" onChange={async (e) => { if(e.target.files[0]) setBgImage(await compressImage(e.target.files[0])); }} className="hidden" />
+                  </label>
                   {bgImage && <button onClick={() => setBgImage(null)} className="flex items-center justify-center gap-2 bg-red-500/20 text-red-500 text-sm font-bold py-2 px-4 rounded-2xl transition-colors hover:bg-red-500 hover:text-white"><Trash2 size={16} /> Remove</button>}
                 </div>
               </div>
             </div>
 
             <div className="mb-2 mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
-              <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between"><span className="flex items-center gap-2"><Save size={16} className="text-emerald-500"/> Data Backup & Sync</span>{isSyncing && <span className="text-[10px] bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded-full animate-pulse">Syncing...</span>}</label>
+              <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-2"><Save size={16} className="text-emerald-500"/> Data Backup & Sync</span>
+                {isSyncing && <span className="text-[10px] bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded-full animate-pulse">Syncing...</span>}
+              </label>
+
               <div className="flex flex-col gap-3">
                 {isLoggedIn ? (
-                  <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 p-3 rounded-2xl"><span className="text-sm font-bold text-green-600 dark:text-green-400 flex items-center gap-2"><CheckCircle size={16} /> GDrive Active</span><button onClick={logoutGoogle} className="text-xs font-bold text-slate-500 hover:text-red-500">Disconnect</button></div>
+                  <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 p-3 rounded-2xl">
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400 flex items-center gap-2"><CheckCircle size={16} /> GDrive Active</span>
+                    <button onClick={logoutGoogle} className="text-xs font-bold text-slate-500 hover:text-red-500">Disconnect</button>
+                  </div>
                 ) : (
-                  <button onClick={() => loginWithGoogle()} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold py-3 px-4 rounded-2xl shadow-sm flex items-center justify-center gap-3 transition-colors"><img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Auto-Sync with Google Drive</button>
+                  <button onClick={() => loginWithGoogle()} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold py-3 px-4 rounded-2xl shadow-sm flex items-center justify-center gap-3 transition-colors">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" /> Auto-Sync with Google Drive
+                  </button>
                 )}
+
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  <button onClick={handleLocalExport} className="flex items-center justify-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-bold py-2.5 rounded-xl transition-colors"><Download size={14} /> Export Backup</button>
-                  <label className="flex items-center justify-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-colors"><Upload size={14} /> Import Data<input type="file" accept=".json" onChange={handleLocalImport} className="hidden" /></label>
+                  <button onClick={handleLocalExport} className="flex items-center justify-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-bold py-2.5 rounded-xl transition-colors">
+                    <Download size={14} /> Export Backup
+                  </button>
+                  <label className="flex items-center justify-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300 text-xs font-bold py-2.5 rounded-xl cursor-pointer transition-colors">
+                    <Upload size={14} /> Import Data
+                    <input type="file" accept=".json" onChange={handleLocalImport} className="hidden" />
+                  </label>
                 </div>
               </div>
             </div>
+            
           </div>
         </div>
       )}
@@ -337,11 +372,11 @@ export default function App() {
   );
 }
 
-function NavButton({ icon, label, isActive, onClick, isSidebarOpen }) {
+// NavButton updated to perfectly frame the icons only
+function NavButton({ icon, label, isActive, onClick }) {
   return (
-    <button onClick={onClick} title={!isSidebarOpen ? label : ''} className={`relative flex items-center gap-3 p-3 rounded-2xl transition-all ${isSidebarOpen ? 'w-full md:justify-start' : 'justify-center w-14 h-14'} ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent'}`}>
-      <span className="text-xl shrink-0">{icon}</span>
-      {isSidebarOpen && <span className="font-medium whitespace-nowrap">{label}</span>}
+    <button onClick={onClick} title={label} className={`relative flex items-center justify-center p-2 sm:p-3 rounded-2xl transition-all w-12 h-12 sm:w-14 sm:h-14 ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent hover:scale-105'}`}>
+      <span className="text-xl sm:text-2xl shrink-0">{icon}</span>
     </button>
   );
 }
