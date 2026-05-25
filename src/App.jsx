@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sun, Moon, Clock, Play, Pause, RotateCcw, X, Settings, Image as ImageIcon, Trash2, SunDim, Upload, Download, CheckCircle, Save, Layers } from 'lucide-react';
 import CalendarView from './CalendarView';
 import SyllabusView from './SyllabusView';
@@ -53,7 +53,6 @@ export default function App() {
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('tracker-color') || 'blue');
   const [bgImage, setBgImage] = useState(() => localStorage.getItem('tracker-bg') || null);
   
-  // 🔥 NEW STATE VARIABLES FOR OPACITY AND DIMMING
   const [colorIntensity, setColorIntensity] = useState(() => Number(localStorage.getItem('tracker-color-intensity') ?? 100));
   const [bgDimness, setBgDimness] = useState(() => Number(localStorage.getItem('tracker-bg-dimness') ?? 20));
   const [tileOpacity, setTileOpacity] = useState(() => Number(localStorage.getItem('tracker-tile-opacity') ?? 40));
@@ -66,6 +65,9 @@ export default function App() {
   const [islandState, setIslandState] = useState('hidden');
 
   const { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing } = useDriveSync();
+  
+  // 🔥 FIX: Store the true original prototype method to prevent stack overflow on re-renders
+  const originalSetItemRef = useRef(Storage.prototype.setItem);
 
   useEffect(() => {
     const triggerResize = () => window.dispatchEvent(new Event('resize'));
@@ -77,16 +79,18 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
     let syncTimeout;
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(key, value) {
-      originalSetItem.apply(this, arguments);
+    
+    // Safely apply the patch using the cached reference
+    Storage.prototype.setItem = function(key, value) {
+      originalSetItemRef.current.apply(this, arguments);
       if (key.startsWith('tracker-')) {
         clearTimeout(syncTimeout);
         syncTimeout = setTimeout(() => saveToDrive(token), 3000); 
       }
     };
+    
     return () => { 
-      localStorage.setItem = originalSetItem; 
+      Storage.prototype.setItem = originalSetItemRef.current; 
       clearTimeout(syncTimeout); 
     };
   }, [isLoggedIn, token, saveToDrive]);
@@ -157,7 +161,7 @@ export default function App() {
       const t = setTimeout(() => setIslandState(p => p === 'expanded' ? 'pill' : p), 2000);
       return () => clearTimeout(t);
     } else if (activeTab === 'timer') setIslandState('hidden');
-  }, [activeTab, isRunning]);
+  }, [activeTab, isRunning, timerMode, timeLeft, totalTime, islandState]);
 
   const handleTimerReset = () => {
     setIsRunning(false);
@@ -239,24 +243,20 @@ export default function App() {
 
   return (
     <>
-      {/* 🔥 GLOBAL CSS OVERRIDE FOR TILE OPACITIES 🔥 */}
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 10px; }
         
-        /* Master override to dynamically control all glass panels across all views */
         .bg-white\\/40 { background-color: rgba(255, 255, 255, ${tileOpacity / 100}) !important; }
         .dark .dark\\:bg-slate-900\\/40 { background-color: rgba(15, 23, 42, ${tileOpacity / 100}) !important; }
         .dark .dark\\:bg-slate-800\\/40 { background-color: rgba(30, 41, 59, ${tileOpacity / 100}) !important; }
     
-        /* 🚀 THE FIX: Dynamic blur control (Slider 0% toh blur bhi 0px = Crystal Clear) */
         .backdrop-blur-xl { 
           backdrop-filter: blur(${(tileOpacity / 100) * 24}px) !important; 
           -webkit-backdrop-filter: blur(${(tileOpacity / 100) * 24}px) !important; 
         }
 
-        /* Internal panels, calendar sidebar & widgets opacity auto-scaling */
         .bg-white\\/20, .bg-white\\/30 { background-color: rgba(255, 255, 255, ${(tileOpacity / 100) * 0.25}) !important; }
         .dark .dark\\:bg-slate-800\\/30 { background-color: rgba(30, 41, 59, ${(tileOpacity / 100) * 0.3}) !important; }
         .dark .dark\\:bg-black\\/20 { background-color: rgba(0, 0, 0, ${(tileOpacity / 100) * 0.2}) !important; }
@@ -266,18 +266,15 @@ export default function App() {
         className="flex flex-col min-h-screen w-full overflow-x-hidden text-slate-800 dark:text-slate-100 transition-colors duration-300 relative bg-slate-100 dark:bg-[#0b1120]"
         style={{ backgroundImage: bgImage ? `url(${bgImage})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}
       >
-        {/* Background Dimmer Overlay */}
         <div className="absolute inset-0 pointer-events-none z-0 transition-colors duration-300" style={{ backgroundColor: `rgba(0,0,0,${bgDimness / 100})`, position: 'fixed' }}></div>
 
-        {/* Orbs */}
         {!bgImage && (
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 fixed" style={{ opacity: colorIntensity / 100 }}>
+          <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" style={{ opacity: colorIntensity / 100 }}>
             <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] ${currentTheme.orb1} rounded-full blur-[100px] transition-colors duration-1000`}></div>
             <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] ${currentTheme.orb2} rounded-full blur-[100px] transition-colors duration-1000`}></div>
           </div>
         )}
 
-        {/* TOP NAVBAR (Sticky) */}
         <nav className="sticky top-0 w-full bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 z-[200] shrink-0 shadow-lg border-b border-white/20 transition-all duration-300">
           
           <div className="flex-1 flex justify-start items-center">
@@ -299,8 +296,7 @@ export default function App() {
           </div>
         </nav>
 
-        {/* Main Content Area */}
-        <main className="flex-1 p-2 md:p-4 flex flex-col">
+        <main className="flex-1 p-2 md:p-4 flex flex-col z-10 relative">
           {activeTab === 'calendar' && <CalendarView themeToggle={toggleThemeBtn} timerIsland={timerIslandUI} />}
           {activeTab === 'syllabus' && <SyllabusView themeToggle={toggleThemeBtn} timerIsland={timerIslandUI} />}
           {activeTab === 'progress' && <ProgressView themeToggle={toggleThemeBtn} timerIsland={timerIslandUI} />}
@@ -308,7 +304,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[9999] flex justify-center items-center p-4">
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl w-full max-w-md rounded-[32px] p-8 relative shadow-2xl border border-white/20 max-h-[90vh] overflow-y-auto hide-scrollbar">
@@ -333,7 +328,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Slider 1: Orb Intensity */}
             {!bgImage && (
               <div className="mb-6">
                 <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
@@ -344,7 +338,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Slider 2: Background Dimness */}
             <div className="mb-6">
                <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
                   <span className="flex items-center gap-2"><Moon size={16} /> BG Dimness</span>
@@ -353,7 +346,6 @@ export default function App() {
                <input type="range" min="0" max="90" step="5" value={bgDimness} onChange={(e) => setBgDimness(Number(e.target.value))} className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
             </div>
 
-            {/* Slider 3: Tile Opacity */}
             <div className="mb-6">
                <label className="text-xs font-extrabold text-slate-500 tracking-widest uppercase mb-3 flex items-center justify-between">
                   <span className="flex items-center gap-2"><Layers size={16} /> Glass Opacity</span>
@@ -369,7 +361,12 @@ export default function App() {
                 <div className="flex-1 flex flex-col gap-2">
                   <label className="bg-blue-600/80 hover:bg-blue-500 text-white text-sm font-bold py-2 px-4 rounded-2xl cursor-pointer text-center transition-colors shadow-lg backdrop-blur-md">
                     Upload Image
-                    <input type="file" accept="image/*" onChange={async (e) => { if(e.target.files[0]) setBgImage(await compressImage(e.target.files[0])); }} className="hidden" />
+                    <input type="file" accept="image/*" onChange={async (e) => { 
+                      if(e.target.files[0]) {
+                        setBgImage(await compressImage(e.target.files[0])); 
+                        e.target.value = null; // Fix: Reset input to allow re-uploads
+                      }
+                    }} className="hidden" />
                   </label>
                   {bgImage && <button onClick={() => setBgImage(null)} className="flex items-center justify-center gap-2 bg-red-500/20 text-red-500 text-sm font-bold py-2 px-4 rounded-2xl transition-colors hover:bg-red-500 hover:text-white"><Trash2 size={16} /> Remove</button>}
                 </div>
@@ -413,7 +410,6 @@ export default function App() {
   );
 }
 
-// NavButton updated to be circular and slightly smaller
 function NavButton({ icon, label, isActive, onClick }) {
   return (
     <button onClick={onClick} title={label} className={`relative flex items-center justify-center p-2 rounded-full transition-all w-10 h-10 sm:w-12 sm:h-12 ${isActive ? 'bg-blue-600/90 text-white shadow-lg border border-white/20 backdrop-blur-md scale-105' : 'text-slate-600 dark:text-slate-400 hover:bg-white/20 hover:text-slate-900 dark:hover:text-white border border-transparent hover:scale-105'}`}>
