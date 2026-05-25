@@ -8,67 +8,53 @@ export function useDriveSync() {
   const [token, setToken] = useState(() => localStorage.getItem('gdrive_token') || null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const logoutGoogle = useCallback(() => {
-    setIsLoggedIn(false);
-    setToken(null);
-    localStorage.removeItem('gdrive_token');
-    localStorage.removeItem('gdrive_loggedin');
-    console.log("Logged out of Google Drive.");
-  }, []);
-
-  // 📥 Download logic
-  const fetchDataFromDrive = useCallback(async (accessToken) => {
+  // 📥 Drive se data wapas khinchne ka (Download) logic
+  const fetchDataFromDrive = async (accessToken) => {
     setIsSyncing(true);
     try {
+      // Pehle check karo file Drive me hai ya nahi
       const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'&fields=files(id)`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      
-      // Handle expired token
-      if (searchRes.status === 401) {
-        logoutGoogle();
-        alert("⚠️ Google Drive session expired. Please reconnect to sync your data.");
-        return;
-      }
-
       const searchData = await searchRes.json();
 
       if (searchData.files && searchData.files.length > 0) {
         const fileId = searchData.files[0].id;
         
+        // File mil gayi, ab usko download karo (alt=media)
         const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
-        
         const backupData = await fileRes.json();
+
         let hasChanges = false;
         
-        // Temporarily bypass the App.jsx auto-sync patch by fetching the true native method 
-        // to prevent an accidental upload trigger during the download process.
-        const nativeSetItem = Object.getPrototypeOf(window.localStorage).setItem;
-
+        // Loop chalake saara data local storage me wapas daalo
         Object.keys(backupData).forEach(key => {
             if (localStorage.getItem(key) !== backupData[key]) {
-                nativeSetItem.call(localStorage, key, backupData[key]);
+                // Using raw Storage API to silently set items without triggering the App.jsx auto-save loop
+                Storage.prototype.setItem.call(localStorage, key, backupData[key]);
                 hasChanges = true;
             }
         });
 
         if (hasChanges) {
-           alert("✅ Cloud Sync Complete! Restoring your Command Center...");
-           window.location.reload(); 
+           alert("✅ Cloud Sync Complete! Restoring your JEE Command Center...");
+           window.location.reload(); // Page refresh to show downloaded data
         } else {
            console.log("✅ Drive Data is already in sync with local.");
         }
+      } else {
+         console.log("ℹ️ No previous backup found on Drive. Starting fresh.");
       }
     } catch (e) {
        console.error("❌ Fetch Error:", e);
     } finally {
       setIsSyncing(false);
     }
-  }, [logoutGoogle]);
+  };
 
-  // 🚀 Catch token from URL + Auto Restore
+  // 🚀 URL se token catch karna + Auto Restore
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
@@ -84,10 +70,11 @@ export function useDriveSync() {
         window.history.replaceState(null, '', window.location.pathname);
         console.log("✅ RAW OAUTH BYPASS SUCCESSFUL!");
         
+        // Login hote hi data utha lo!
         fetchDataFromDrive(accessToken);
       }
     }
-  }, [fetchDataFromDrive]);
+  }, []);
 
   const loginWithGoogle = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -101,12 +88,21 @@ export function useDriveSync() {
     window.location.href = authUrl; 
   };
 
-  // 📤 Upload Logic 
+  const logoutGoogle = () => {
+    setIsLoggedIn(false);
+    setToken(null);
+    localStorage.removeItem('gdrive_token');
+    localStorage.removeItem('gdrive_loggedin');
+    console.log("Logged out of Google Drive.");
+  };
+
+  // 📤 Upload Logic (🔥 FIXED: 2-Step Media Upload)
   const saveToDrive = useCallback(async (accessToken) => {
     if (!accessToken) return;
     setIsSyncing(true);
 
     try {
+      // 1. Pura LocalStorage data ekathha karo
       const dataToSave = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -114,52 +110,56 @@ export function useDriveSync() {
       }
       
       const fileContent = JSON.stringify(dataToSave);
-      const metadata = { name: FILE_NAME, parents: ['appDataFolder'] };
 
+      // 2. Check karo ki GDrive appDataFolder me file pehle se hai ya nahi
       const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-      
-      // Handle expired token on upload
-      if (searchRes.status === 401) {
-        logoutGoogle();
-        alert("⚠️ Google Drive session expired. Please reconnect to backup your data.");
-        setIsSyncing(false);
-        return;
-      }
-
       const searchData = await searchRes.json();
       
       let fileId = null;
       if (searchData.files && searchData.files.length > 0) fileId = searchData.files[0].id;
 
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', new Blob([fileContent], { type: 'application/json' }));
+      // 3. Agar file nahi hai, toh pehle khali dabba (metadata) banao
+      if (!fileId) {
+        const createRes = await fetch("https://www.googleapis.com/drive/v3/files", {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: FILE_NAME,
+            parents: ['appDataFolder']
+          })
+        });
+        const createData = await createRes.json();
+        fileId = createData.id;
+      }
 
-      const url = fileId 
-        ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
-        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-      const method = fileId ? 'PATCH' : 'POST';
+      // 4. Ab us dabbe me asli data upload karo (uploadType=media)
+      if (fileId) {
+        const uploadRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json' // Actual JSON content type
+          },
+          body: fileContent
+        });
 
-      const uploadRes = await fetch(url, {
-        method: method,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: form
-      });
-
-      if (!uploadRes.ok && uploadRes.status === 401) {
-         logoutGoogle();
-         alert("⚠️ Google Drive session expired during upload. Please reconnect.");
-      } else if (uploadRes.ok) {
-         console.log("✅ Data successfully synced to Google Drive!");
+        if (uploadRes.ok) {
+           console.log("✅ Data successfully synced to Google Drive! Size:", fileContent.length, "bytes");
+        } else {
+           console.error("❌ Upload failed at media step:", await uploadRes.text());
+        }
       }
     } catch (error) {
       console.error("❌ Drive Sync Catch Error:", error);
     } finally {
       setIsSyncing(false);
     }
-  }, [logoutGoogle]);
+  }, []);
 
-  return { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, fetchDataFromDrive, isSyncing };
+  return { isLoggedIn, token, loginWithGoogle, logoutGoogle, saveToDrive, isSyncing };
 }
